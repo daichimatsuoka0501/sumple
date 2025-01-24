@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Monkey Hunting Simulation</title>
+  <!-- GlowScriptの外部リソース -->
+  <link type="text/css" href="https://www.glowscript.org/css/redmond/2.1/jquery-ui.custom.css" rel="stylesheet" />
+  <link type="text/css" href="https://www.glowscript.org/css/ide.css" rel="stylesheet" />
+  <script type="text/javascript" src="https://www.glowscript.org/lib/jquery/2.1/jquery.min.js"></script>
+  <script type="text/javascript" src="https://www.glowscript.org/lib/jquery/2.1/jquery-ui.custom.min.js"></script>
+  <script type="text/javascript" src="https://www.glowscript.org/package/glow.3.2.min.js"></script>
+  <script type="text/javascript" src="https://www.glowscript.org/package/RSrun.3.2.min.js"></script>
+</head>
+<body>
+  <div id="glowscript" class="glowscript"></div>
+  <script>
+    // 必須の初期化
+    window.__context = { glowscript_container: "glowscript" };
+
+    // JavaScriptコードの開始
+    (async function() {
+      "use strict";
+
+      // シーン設定
+      const scene = canvas({center: vec(10, 10, 0), width: 800, height: 800, range: 20});
+      const g = 9.8; // 重力加速度
+      const h = 0.005; // 時間の刻み
+      let v0 = 20; // 初速度
+      let theta = (30 * Math.PI) / 180; // 初期角度
+      let running = false; // 実行状態
+      let reset_flag = false; // リセットフラグ
+      let t = 0; // 時間
+      const L = 20; // 初期の位置
+
+      // ボール設定
+      const ball1 = sphere({
+        pos: vec(0, 0, 0),
+        radius: 0.5,
+        color: color.red,
+        make_trail: true,
+        trail_type: "points",
+        interval: 10,
+        retain: 100,
+      });
+
+      const ball2 = sphere({
+        radius: 0.5,
+        color: color.blue,
+        make_trail: true,
+        trail_type: "points",
+        interval: 10,
+        retain: 100,
+      });
+
+      // スライダーやボタンのUI設定
+      const Run_Pause_button = button({
+        text: "Run",
+        bind: function () {
+          running = !running;
+          this.text = running ? "Pause" : "Run";
+        },
+      });
+
+      const reset_button = button({
+        text: "Reset",
+        bind: function () {
+          reset_flag = true;
+        },
+      });
+
+      scene.append_to_caption("\n");
+
+      const velocity_label = wtext({text: `Initial Velocity: ${v0.toFixed(1)} m/s`});
+      scene.append_to_caption("\n");
+
+      slider({
+        min: 5,
+        max: 40,
+        value: 20,
+        step: 0.1,
+        length: 300,
+        bind: function (s) {
+          v0 = s.value;
+          velocity_label.text = `Initial Velocity: ${v0.toFixed(1)} m/s`;
+          reset_flag = true;
+        },
+      });
+
+      scene.append_to_caption("\n");
+
+      const angle_label = wtext({text: `Initial Angle: ${(theta * 180 / Math.PI).toFixed(1)}°`});
+      scene.append_to_caption("\n");
+
+      slider({
+        min: 10,
+        max: 50,
+        value: 30,
+        step: 1,
+        length: 300,
+        bind: function (s) {
+          theta = (s.value * Math.PI) / 180;
+          angle_label.text = `Initial Angle: ${s.value.toFixed(1)}°`;
+          reset_flag = true;
+        },
+      });
+
+      scene.append_to_caption("\n");
+
+      // シミュレーションのリセット
+      function reset_simulation() {
+        ball1.pos = vec(0, 0, 0);
+        ball2.pos = vec(L, L * Math.tan(theta), 0);
+        ball1.vel = vec(v0 * Math.cos(theta), v0 * Math.sin(theta), 0);
+        ball2.vel = vec(0, 0, 0);
+        ball1.clear_trail();
+        ball2.clear_trail();
+        t = 0;
+      }
+
+      reset_simulation();
+
+      // アニメーションループ
+      async function animate() {
+        await rate(100);
+
+        if (reset_flag) {
+          reset_simulation();
+          reset_flag = false;
+        }
+
+        if (running) {
+          ball1.pos = ball1.pos.add(ball1.vel.multiply(h));
+          ball1.vel = ball1.vel.add(vec(0, -g * h, 0));
+          t += h;
+
+          // 衝突判定
+          if (mag(ball1.pos.subtract(ball2.pos)) < 0.1) {
+            running = false;
+            console.log(
+              ball1.pos.y > 0
+                ? `ハント成功！接触時刻: t = ${t.toFixed(2)} s, 接触y座標: ${ball1.pos.y}`
+                : `ハント失敗！接触時刻: t = ${t.toFixed(2)} s`
+            );
+          }
+
+          // 地面到達判定
+          if (ball1.pos.y <= 0) {
+            running = false;
+            console.log(`ハント失敗！t = ${t.toFixed(2)} s`);
+          }
+        }
+      }
+
+      // メインループ
+      while (true) {
+        await animate();
+      }
+    })();
+  </script>
+</body>
+</html>
